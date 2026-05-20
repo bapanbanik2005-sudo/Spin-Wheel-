@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spin Wheel — Add / Remove Numbers</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#9aa8bf;
+      --accent:#60a5fa;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--bg),#071021);color:#e6eef8;padding:24px;
+    }
+    .app{width:100%;max-width:980px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:14px;padding:20px;box-shadow:0 10px 30px rgba(2,6,23,0.7);display:grid;grid-template-columns:420px 1fr;gap:18px;align-items:start}
+    h1{margin:0 0 8px;font-size:18px}
+    p.lead{margin:0 0 12px;color:var(--muted);font-size:13px}
+
+    .wheel-wrap{display:flex;flex-direction:column;gap:14px;align-items:center}
+    .wheel-holder{position:relative;width:360px;height:360px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+    .wheel{width:100%;height:100%;border-radius:50%;position:relative;transform:rotate(0deg);transition:transform 2s cubic-bezier(.18,.83,.32,1);box-shadow:inset 0 -6px 20px rgba(0,0,0,0.6), 0 8px 30px rgba(2,6,23,0.6);overflow:hidden;display:flex;align-items:center;justify-content:center;background:conic-gradient(from 0deg, #333 0 10%)}
+    .pointer{position:absolute;top:50%;left:50%;transform:translate(-50%,-180px);width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-top:22px solid #fffb;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));z-index:5}
+    .center-bubble{position:absolute;width:84px;height:84px;border-radius:50%;background:linear-gradient(180deg,#0b1220,#031223);display:flex;align-items:center;justify-content:center;flex-direction:column;border:3px solid rgba(255,255,255,0.03);z-index:3}
+    .spin-btn{background:linear-gradient(180deg,var(--accent),#3b82f6);border:none;padding:10px 16px;border-radius:12px;color:#042a4f;font-weight:700;cursor:pointer}
+    .spin-btn:disabled{opacity:0.45;cursor:not-allowed}
+
+    .controls{padding:12px 6px}
+    .card{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px}
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    input[type=text]{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .row{display:flex;gap:8px}
+    .btn{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
+    .btn.primary{background:var(--accent);color:#042a4f;font-weight:700}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+    ul.list{list-style:none;padding:8px;margin:8px 0;max-height:240px;overflow:auto}
+    ul.list li{display:flex;justify-content:space-between;padding:8px;border-radius:8px;margin-bottom:6px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent)}
+    .small{font-size:13px;color:var(--muted)}
+    .badge{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px}
+    .result{margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent)}
+
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px);}
+    .modal{background:#fff;color:#111;padding:24px 28px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.4);max-width:300px;text-align:center;animation:pop .3s ease-out}
+    .modal h2{margin:0 0 12px}
+    .modal button{margin-top:14px;padding:8px 12px;border:none;border-radius:8px;background:#3b82f6;color:white;font-weight:600;cursor:pointer}
+    @keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+
+    @media (max-width:880px){.app{grid-template-columns:1fr;max-width:720px}.wheel-holder{width:300px;height:300px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div>
+      <h1>Spin Wheel — Add / Remove Numbers</h1>
+      <p class="lead">Create numbers, remove them, then spin. The pointer (top) indicates the chosen segment.</p>
+      <div class="wheel-wrap">
+        <div class="wheel-holder">
+          <div class="pointer"></div>
+          <div id="wheel" class="wheel"></div>
+          <div class="center-bubble">
+            <div style="font-size:12px;color:var(--muted)">SPIN</div>
+            <button id="spinBtn" class="spin-btn">SPIN</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="small">Last result:</div>
+          <div id="last" class="badge">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="card">
+        <label for="itemInput">Add number or label</label>
+        <div class="row">
+          <input id="itemInput" type="text" placeholder="e.g. 5 or Prize A" />
+          <button id="addBtn" class="btn primary">Add</button>
+        </div>
+        <div style="height:8px"></div>
+        <div class="small">Quick actions</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="addDefault" class="btn ghost">Add 1–6</button>
+          <button id="clearBtn" class="btn ghost">Clear All</button>
+        </div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><strong>Items</strong><div class="small">Click delete on an item to remove it</div></div>
+          <div class="small">Count: <span id="count">0</span></div>
+        </div>
+        <ul id="itemsList" class="list"></ul>
+        <div class="result">
+          <div class="small">Wheel angle: <span id="angleDisplay">0°</span></div>
+        </div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="card">
+        <strong>Eliminated Numbers</strong>
+        <ul id="eliminatedList" class="list"></ul>
+        <button id="restoreBtn" class="btn primary" style="margin-top:8px">Restore All</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalContainer"></div>
+
+  <script>
+    const wheelEl = document.getElementById('wheel');
+    const spinBtn = document.getElementById('spinBtn');
+    const itemInput = document.getElementById('itemInput');
+    const addBtn = document.getElementById('addBtn');
+    const itemsList = document.getElementById('itemsList');
+    const countEl = document.getElementById('count');
+    const lastEl = document.getElementById('last');
+    const angleDisplay = document.getElementById('angleDisplay');
+    const addDefault = document.getElementById('addDefault');
+    const clearBtn = document.getElementById('clearBtn');
+    const eliminatedList = document.getElementById('eliminatedList');
+    const restoreBtn = document.getElementById('restoreBtn');
+    const modalContainer = document.getElementById('modalContainer');
+
+    let items = ['1','2','3','4','5','6'];
+    let eliminated = [];
+    let currentRotation = 0;
+    let spinning = false;
+
+    function colorForIndex(i, n){
+      const hue = Math.floor((i/n)*360);
+      return `hsl(${hue} 80% 50%)`;
+    }
+
+    function renderWheel(){
+      const n = items.length || 1;
+      const slices = [];
+      for(let i=0;i<n;i++){
+        const start = (i/n)*360;
+        const end = ((i+1)/n)*360;
+        slices.push(`${colorForIndex(i,n)} ${start}deg ${end}deg`);
+      }
+      wheelEl.style.background = `conic-gradient(from -90deg, ${slices.join(', ')})`;
+      renderLabels();
+      countEl.textContent = items.length;
+    }
+
+    function renderLabels(){
+      wheelEl.querySelectorAll('.seg-label').forEach(n=>n.remove());
+      const n = items.length || 1;
+      for(let i=0;i<n;i++){
+        const angle = (i+0.5)*(360/n) - 90;
+        const label = document.createElement('div');
+        label.className = 'seg-label';
+        label.textContent = items[i];
+        Object.assign(label.style,{position:'absolute',left:'50%',top:'50%',transform:`rotate(${angle}deg) translate(0,-140px) rotate(${ -angle }deg)`,transformOrigin:'center center',fontSize:'14px',fontWeight:700,color:'#021627',padding:'4px 8px',borderRadius:'6px',background:'rgba(255,255,255,0.85)'});
+        wheelEl.appendChild(label);
+      }
+    }
+
+    function renderList(){
+      itemsList.innerHTML = '';
+      items.forEach((it, idx)=>{
+        const li = document.createElement('li');
+        const left = document.createElement('div');
+        left.innerHTML = `<strong>${it}</strong><div class="small">#${idx+1}</div>`;
+        const right = document.createElement('div');
+        right.style.display='flex';right.style.gap='8px';
+        const del = document.createElement('button');
+        del.className='btn ghost';del.textContent='Delete';
+        del.onclick = ()=>{ if(confirm(`Are you sure you want to remove '${it}'?`)) removeItem(idx); };
+        right.appendChild(del);
+        li.appendChild(left);li.appendChild(right);
+        itemsList.appendChild(li);
+      });
+      renderEliminated();
+    }
+
+    function renderEliminated(){
+      eliminatedList.innerHTML='';
+      eliminated.forEach((el)=>{
+        const li=document.createElement('li'); li.textContent=el; eliminatedList.appendChild(li);
+      });
+    }
+
+    function addItem(value){
+      const v = String(value).trim();
+      if(!v) return;
+      items.push(v);
+      updateAll();
+    }
+
+    function removeItem(idx){
+      const removed = items.splice(idx,1)[0];
+      eliminated.push(removed);
+      updateAll();
+    }
+
+    function clearAll(){ items = []; updateAll(); }
+    function restoreAll(){ items = items.concat(eliminated); eliminated=[]; updateAll(); }
+
+    function updateAll(){ renderWheel(); renderList(); }
+
+    function showModal(winner){
+      modalContainer.innerHTML = `
+        <div class="modal-backdrop" onclick="closeModal(event)">
+          <div class="modal" onclick="event.stopPropagation()">
+            <h2>🎉 Winner 🎉</h2>
+            <p><strong>${winner}</strong></p>
+            <button id="modalCloseBtn">Close</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('modalCloseBtn').onclick = ()=>{ closeModal(); confirmRemoval(winner); };
+    }
+
+    function closeModal(){ modalContainer.innerHTML=''; }
+    function confirmRemoval(winner){
+      if(confirm(`Do you want to remove '${winner}' from the wheel?`)){
+        const idx = items.indexOf(winner);
+        if(idx!==-1) removeItem(idx);
+      }
+    }
+
+    function spin(){
+      if(spinning || items.length===0) return;
+      spinning = true;
+      spinBtn.disabled = true;
+      addBtn.disabled = true; addDefault.disabled = true; clearBtn.disabled = true;
+
+      const n = items.length;
+      const chosenIndex = Math.floor(Math.random()*n);
+      const sliceSize = 360 / n;
+      const sliceCenter = (chosenIndex + 0.5) * sliceSize;
+      const pointerAngle = -90;
+      const extraSpins = 8 + Math.floor(Math.random()*4);
+      const finalRotation = 360*extraSpins + pointerAngle - sliceCenter;
+      currentRotation += finalRotation;
+
+      wheelEl.style.transition = 'transform 2s cubic-bezier(.18,.83,.32,1)';
+      wheelEl.style.transform = `rotate(${currentRotation}deg)`;
+
+      wheelEl.addEventListener('transitionend', onEnd, {once:true});
+      function onEnd(){
+        lastEl.textContent = items[chosenIndex] ?? '—';
+        showModal(items[chosenIndex]);
+        spinning = false;
+        spinBtn.disabled = false; addBtn.disabled = false; addDefault.disabled = false; clearBtn.disabled = false;
+      }
+    }
+
+    addBtn.addEventListener('click', ()=>{ addItem(itemInput.value); itemInput.value=''; itemInput.focus(); });
+    itemInput.addEventListener('keyup',(e)=>{ if(e.key==='Enter'){ addItem(itemInput.value); itemInput.value=''; } });
+    spinBtn.addEventListener('click', spin);
+    addDefault.addEventListener('click', ()=>{ for(let i=1;i<=6;i++) items.push(String(i)); updateAll(); });
+    clearBtn.addEventListener('click', ()=>{ if(confirm('Clear all items?')) clearAll(); });
+    restoreBtn.addEventListener('click', restoreAll);
+    window.addEventListener('keydown',(e)=>{ if(e.code==='Space'){ e.preventDefault(); spin(); } });
+    updateAll();
+  </script>
+</body>
